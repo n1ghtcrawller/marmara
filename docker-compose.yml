@@ -10,6 +10,9 @@ services:
       - redis
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/marmara
+    volumes:
+      - ./uploaded_files:/app/uploaded_files
+
 
   celery:
     build: .
@@ -17,6 +20,9 @@ services:
     depends_on:
       - redis
       - web
+    volumes:
+      - ./uploaded_files:/app/uploaded_files
+
 
   redis:
     image: redis:7

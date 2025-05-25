@@ -5,10 +5,11 @@ from app.models.db_models import Transcription
 from app.models.schemas import UserRead
 from app.dependencies.auth import get_current_user
 from app.tasks.transcribe import process_audio_task
-
+from app.logger import celery_logger
 import shutil
 import uuid
 import os
+import json
 
 router = APIRouter()
 
@@ -41,8 +42,8 @@ async def upload_audio(
     db.refresh(transcription)
 
     # Запускаем фоновую задачу
+    celery_logger.info(f"Отправка задачи Celery для ID {transcription.id}")
     process_audio_task.delay(transcription.id)
-
     return {"message": "Файл принят", "transcription_id": transcription.id}
 
 @router.get("/results/")
@@ -51,4 +52,18 @@ def get_user_transcriptions(
     db: Session = Depends(get_db)
 ):
     transcriptions = db.query(Transcription).filter(Transcription.user_id == current_user.id).all()
-    return [{"id": t.id, "text": t.text, "created_at": t.created_at} for t in transcriptions]
+
+    results = []
+    for t in transcriptions:
+        try:
+            text_data = json.loads(t.text) if t.text else None
+        except json.JSONDecodeError:
+            text_data = t.text
+
+        results.append({
+            "id": t.id,
+            "text": text_data,
+            "created_at": t.created_at
+        })
+
+    return results

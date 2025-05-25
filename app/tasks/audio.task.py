@@ -3,12 +3,11 @@ from app.models.db_models import Transcription
 from app.services.speech_service import SpeechService
 from app.services.audio_service import AudioService
 from app.services.text_service import TextService
-from app.tasks.celery_app import celery
 from app.logger import celery_logger
-import json
+from app.tasks.celery_app import celery
 
-@celery.task
-def process_audio_task(transcription_id: int):
+@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True)
+def process_audio_task(self, transcription_id: int):
     db = SessionLocal()
     try:
         celery_logger.info(f"Начата обработка транскрипции с ID {transcription_id}")
@@ -29,7 +28,7 @@ def process_audio_task(transcription_id: int):
         analyzed_text = TextService().analyze(raw_text)
         celery_logger.info(f"Анализированный текст: {analyzed_text}")
 
-        transcription.text = json.dumps(analyzed_text, ensure_ascii=False)
+        transcription.text = analyzed_text
         db.commit()
         celery_logger.info(f"Транскрипция ID {transcription_id} успешно сохранена")
     except Exception as e:
