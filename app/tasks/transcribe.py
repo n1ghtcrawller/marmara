@@ -6,8 +6,8 @@ from app.tasks.celery_app import celery
 from app.logger import celery_logger
 import json
 
-@celery.task
-def process_audio_task(transcription_id: int):
+@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True)
+def process_audio_task(self, transcription_id: int):
     db = SessionLocal()
     try:
         celery_logger.info(f"Начата обработка транскрипции с ID {transcription_id}")
@@ -22,16 +22,25 @@ def process_audio_task(transcription_id: int):
         processed_path = AudioService().preprocess(audio_path)
         celery_logger.info(f"Файл после предобработки: {processed_path}")
 
-        raw_text = SpeechService().transcribe(processed_path)
+        result = SpeechService().transcribe(processed_path)
+        raw_text = result["text"]
+        metrics = result["metrics"]
+
         celery_logger.info(f"Сырой текст: {raw_text}")
 
-        # analyzed_text = TextService().analyze(raw_text)
-        # celery_logger.info(f"Анализированный текст: {analyzed_text}")
+        transcription.text = raw_text
+        transcription.language = metrics.get("language")
+        transcription.duration_sec = metrics.get("duration_sec")
+        transcription.word_count = metrics.get("word_count")
+        transcription.segment_count = metrics.get("segment_count")
+        transcription.avg_segment_duration_sec = metrics.get("avg_segment_duration_sec")
+        transcription.avg_logprob = metrics.get("avg_logprob")
+        transcription.silence_ratio = metrics.get("silence_ratio")
 
-        transcription.text = json.dumps(raw_text, ensure_ascii=False)
         db.commit()
         celery_logger.info(f"Транскрипция ID {transcription_id} успешно сохранена")
     except Exception as e:
         celery_logger.error(f"Ошибка при обработке транскрипции ID {transcription_id}: {e}")
     finally:
         db.close()
+

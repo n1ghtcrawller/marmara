@@ -6,6 +6,7 @@ from app.models.schemas import UserRead
 from app.dependencies.auth import get_current_user
 from app.tasks.transcribe import process_audio_task
 from app.logger import celery_logger
+from app.services.metrics_service import collect_metrics
 import shutil
 import uuid
 import os
@@ -67,3 +68,11 @@ def get_user_transcriptions(
         })
 
     return results
+
+
+@router.get("/metrics/")
+def get_transcription_metrics(
+    current_user: UserRead = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return collect_metrics(current_user.id, db)

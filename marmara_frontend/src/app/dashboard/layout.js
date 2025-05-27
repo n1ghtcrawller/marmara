@@ -7,6 +7,7 @@ const menuItems = [
     { id: 'history', label: 'История загрузок и анализов', href: '/dashboard/history' },
     { id: 'visualization', label: 'Визуализация данных', href: '/dashboard/visualization' },
     { id: 'tags', label: 'Теги и категории', href: '/dashboard/tags' },
+    { id: 'upload', label: 'Импорт записей', href: '/dashboard/import' },
     { id: 'notifications', label: 'Уведомления и алерты', href: '/dashboard/notifications' },
     { id: 'export', label: 'Экспорт данных', href: '/dashboard/export' },
     { id: 'settings', label: 'Пользовательские настройки', href: '/dashboard/settings' },

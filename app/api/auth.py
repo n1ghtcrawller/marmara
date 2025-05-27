@@ -6,7 +6,10 @@ from app.models.db_models import User
 from app.models.schemas import UserCreate, Token
 from app.core.security import get_password_hash, verify_password, create_access_token
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api",
+    tags=["auth"]
+)
 
 def get_db():
     db = SessionLocal()

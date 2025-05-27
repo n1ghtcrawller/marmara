@@ -1,14 +1,21 @@
 from fastapi import FastAPI, UploadFile, File
-from app.api.endpoints import router
 from app.database import engine
 from app.models import db_models
 from app.api import auth, endpoints
 import time
 from sqlalchemy.exc import OperationalError
+from fastapi.middleware.cors import CORSMiddleware
 
 
 app = FastAPI(title="Marmara Speech Analytics")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # FIXME:
 def wait_for_db(aengine, timeout=60, interval=2):
     start = time.time()
