@@ -19,7 +19,7 @@ def process_audio_task(self, transcription_id: int):
         audio_path = transcription.file_path
         celery_logger.info(f"Обработка файла: {audio_path}")
 
-        processed_path = AudioService().preprocess(audio_path)
+        processed_path = AudioService().process_large_file_with_vad(audio_path)
         celery_logger.info(f"Файл после предобработки: {processed_path}")
 
         result = SpeechService().transcribe(processed_path)

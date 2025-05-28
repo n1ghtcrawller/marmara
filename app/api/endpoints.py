@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.db_models import Transcription
@@ -68,6 +68,28 @@ def get_user_transcriptions(
         })
 
     return results
+
+@router.delete("/results/{transcription_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_transcription(
+    transcription_id: int,
+    current_user: UserRead = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    transcription = db.query(Transcription).filter(
+        Transcription.id == transcription_id,
+        Transcription.user_id == current_user.id
+    ).first()
+
+    if not transcription:
+        raise HTTPException(status_code=404, detail="Расшифровка не найдена")
+    if transcription.file_path and os.path.exists(transcription.file_path):
+        try:
+            os.remove(transcription.file_path)
+        except Exception as e:
+            celery_logger.warning(f"Не удалось удалить файл {transcription.file_path}: {e}")
+
+    db.delete(transcription)
+    db.commit()
 
 
 @router.get("/metrics/")
