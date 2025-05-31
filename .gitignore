@@ -3,3 +3,4 @@ marmara_venv
 .idea
 logs
 uploaded_files
+docker_cache

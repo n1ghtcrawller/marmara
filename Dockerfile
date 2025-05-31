@@ -11,13 +11,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Загрузка модели spaCy
-RUN python -m spacy download ru_core_news_sm
+#RUN #python -m spacy download ru_core_news_sm
 
 # Загрузка ресурсов NLTK
-RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
+#RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
 
 # Загрузка модели whisper large-v2
-RUN python -c "import whisper; whisper.load_model('large-v2')"
+#RUN python -c "import whisper; whisper.load_model('large-v2')" - для разворачивания без скачанного на хост машине модели
+COPY docker_cache/whisper/large-v2.pt /root/.cache/whisper/large-v2.pt
 
 # Копирование всего проекта
 COPY . .

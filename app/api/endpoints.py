@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Request
+from app.services.file_service import FileService
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.db_models import Transcription
@@ -7,6 +8,7 @@ from app.dependencies.auth import get_current_user
 from app.tasks.transcribe import process_audio_task
 from app.logger import celery_logger
 from app.services.metrics_service import collect_metrics
+from pathlib import Path
 import shutil
 import uuid
 import os
@@ -21,8 +23,10 @@ def get_db():
     finally:
         db.close()
 
-UPLOAD_DIR = "uploaded_files"
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+UPLOAD_DIR = BASE_DIR / "uploaded_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+file_service = FileService(upload_dir=UPLOAD_DIR)
 
 @router.post("/upload/")
 async def upload_audio(
@@ -49,6 +53,7 @@ async def upload_audio(
 
 @router.get("/results/")
 def get_user_transcriptions(
+    request: Request,
     current_user: UserRead = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -61,10 +66,13 @@ def get_user_transcriptions(
         except json.JSONDecodeError:
             text_data = t.text
 
+        audio_url = request.url_for("serve_audio_file", filename=os.path.basename(t.file_path))
+
         results.append({
             "id": t.id,
             "text": text_data,
-            "created_at": t.created_at
+            "created_at": t.created_at,
+            "audio_url": audio_url
         })
 
     return results
@@ -98,3 +106,7 @@ def get_transcription_metrics(
     db: Session = Depends(get_db)
 ):
     return collect_metrics(current_user.id, db)
+
+@router.get("/audio/{filename}", name="serve_audio_file")
+def serve_audio_file(filename: str):
+    return file_service.get_file_response(filename)

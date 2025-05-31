@@ -10,6 +10,7 @@ class AudioService:
     def __init__(self):
         self.tmp_root = "/tmp/audio_chunks"
         os.makedirs(self.tmp_root, exist_ok=True)
+        self.vad_model = load_silero_vad()
 
     def split_audio(self, input_path: str, chunk_length: int = 60) -> List[str]:
         celery_logger.info(f"Деление {input_path} на чанки по {chunk_length} сек.")
@@ -40,7 +41,8 @@ class AudioService:
     def convert_to_wav(self, input_path: str, output_path: str) -> str:
         try:
             subprocess.run([
-                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "ffmpeg", "-y",  # авто-перезапись
+                "-hide_banner", "-loglevel", "error",
                 "-i", input_path,
                 "-ar", "16000", "-ac", "1",
                 output_path
@@ -94,14 +96,15 @@ class AudioService:
 
     def process_large_file_with_vad(self, input_path: str, chunk_length: int = 60) -> str:
         """
-        Обработка большого файла: разбиение, конвертация, VAD, склейка.
+ +       Обработка большого файла: разбиение, конвертация, VAD, склейка.
         """
         celery_logger.info(f"Обработка большого файла: {input_path}")
         chunks = self.split_audio(input_path, chunk_length)
         vad_wavs = []
 
         for chunk in chunks:
-            wav_path = self.convert_to_wav(chunk, chunk.replace(".mp3", ".wav"))
+            base = os.path.splitext(chunk)[0]
+            wav_path = self.convert_to_wav(chunk, base + ".wav")
             vad_path = self.apply_vad(wav_path)
             vad_wavs.append(vad_path)
 

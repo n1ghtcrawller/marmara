@@ -5,6 +5,7 @@ from app.api import auth, endpoints
 import time
 from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 
 app = FastAPI(title="Marmara Speech Analytics")
@@ -32,6 +33,7 @@ def wait_for_db(aengine, timeout=60, interval=2):
 
 wait_for_db(engine)
 db_models.Base.metadata.create_all(bind=engine)
+app.mount("/media", StaticFiles(directory="uploaded_files"), name="serve_audio_file")
 
 app.include_router(auth.router)
 app.include_router(endpoints.router)
