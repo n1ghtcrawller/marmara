@@ -111,12 +111,12 @@ export default function HistoryPage() {
                                 </div>
                             </div>
 
-                            {item.audio_url && (
+                            {item.audio_url && item.audio_url._url && (
                                 <audio
                                     controls
                                     className="w-full mt-4 rounded-lg bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
                                 >
-                                    <source src={item.audio_url} type="audio/wav" />
+                                    <source src={item.audio_url._url} type="audio/ogg" />
                                     Ваш браузер не поддерживает аудио.
                                 </audio>
                             )}

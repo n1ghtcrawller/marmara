@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Boolean, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -41,3 +41,23 @@ class AudioResult(Base):
     audio_duration = Column(Float)
     user_id = Column(Integer, ForeignKey("users.id"))
     analysis_type = Column(String)
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transcription_id = Column(Integer, ForeignKey("transcriptions.id"), nullable=False)
+
+    greeting = Column(Boolean, default=False)
+    offered_discount = Column(Boolean, default=False)
+    offered_special_tariff = Column(Boolean, default=False)
+    client_questions = Column(JSON)  # список вопросов клиента
+    friendliness_score = Column(Integer)
+    product_interest = Column(String(255))
+    client_objections = Column(JSON)
+    client_knows_source = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    transcription = relationship("Transcription", backref="report")
