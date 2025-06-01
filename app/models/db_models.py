@@ -47,7 +47,7 @@ class Report(Base):
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True, index=True)
-    transcription_id = Column(Integer, ForeignKey("transcriptions.id"), nullable=False)
+    transcription_id = Column(Integer, ForeignKey("transcriptions.id"), nullable=True)
 
     greeting = Column(Boolean, default=False)
     offered_discount = Column(Boolean, default=False)
@@ -57,6 +57,7 @@ class Report(Base):
     product_interest = Column(String(255))
     client_objections = Column(JSON)
     client_knows_source = Column(Boolean, default=False)
+    llm_analysis = Column(String, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

@@ -7,6 +7,8 @@ export default function ExportPage() {
     const [reports, setReports] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
@@ -52,7 +54,7 @@ export default function ExportPage() {
 
     const handleCreateReport = async (transcriptionId) => {
         if (!token) return;
-
+        setIsLoading(true);
         try {
             const res = await fetch(`http://localhost:8000/reports/${transcriptionId}`, {
                 method: 'POST',
@@ -70,6 +72,8 @@ export default function ExportPage() {
             }));
         } catch (err) {
             alert(err.message || 'Ошибка при создании отчета');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -108,6 +112,7 @@ export default function ExportPage() {
                                         <li>🤝 Дружелюбность: {report.friendliness_score ?? 'N/A'}/10</li>
                                         <li>📌 Продукт: {report.product_interest || '—'}</li>
                                         <li>🧠 Источник клиента: {report.client_knows_source ? 'Да' : 'Нет'}</li>
+                                        <li>Анализ от ChatGPT: {report.llm_analysis}</li>
                                     </ul>
 
                                     <div className="flex gap-2">
@@ -125,6 +130,26 @@ export default function ExportPage() {
                                         </button>
                                     </div>
                                 </>
+                            ) : isLoading ? (
+                                <div className="mt-4 flex items-center justify-center text-sm text-gray-500 gap-2">
+                                    <svg className="animate-spin h-5 w-5 text-green-500" viewBox="0 0 24 24">
+                                        <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                            fill="none"
+                                        />
+                                        <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                        />
+                                    </svg>
+                                    Создание отчёта...
+                                </div>
                             ) : (
                                 <button
                                     onClick={() => handleCreateReport(t.id)}

@@ -1,6 +1,12 @@
 import re
 from typing import List, Dict
-from collections import Counter
+from dotenv import load_dotenv
+import os
+import httpx
+
+load_dotenv()
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 GREETING_KEYWORDS = ["здравствуйте", "добрый день", "привет"]
 DISCOUNT_KEYWORDS = ["скидк", "акц", "предлож"]
@@ -52,6 +58,47 @@ def infer_product_interest(text: str) -> str:
     matches = re.findall(r"(тариф\s+\w+|план\s+\w+|услуга\s+\w+)", text.lower())
     return matches[0] if matches else ""
 
+def analyze_openrouter_llm(transcription: str) -> str:
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}"
+    }
+
+    payload = {
+        "model": "mistralai/mistral-7b-instruct",
+        "messages": [
+            {
+                "role": "system",
+                "content": "Ты эксперт по анализу звонков. Отвечай по пунктам и кратко."
+            },
+            {
+                "role": "user",
+                "content": f"""Проанализируй транскрипт звонка:
+{transcription}
+
+Найди:
+1. Приветствие (да/нет)
+2. Упоминалась ли скидка / акция?
+3. Упоминался ли спецтариф или план?
+4. Насколько дружелюбен оператор (0–10)?
+5. Какие вопросы задал клиент?
+6. Были ли возражения?
+7. Упоминал ли клиент, откуда узнал о нас?
+"""
+            }
+        ],
+        "max_tokens": 1500,
+        "temperature": 0.7
+    }
+
+    try:
+        response = httpx.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except httpx.RequestError as e:
+        return f"Ошибка соединения с OpenRouter: {e}"
+    except Exception as e:
+        return f"Ошибка анализа ответа: {e}"
 
 def generate_report_data(text: str) -> Dict:
     return {
@@ -62,5 +109,6 @@ def generate_report_data(text: str) -> Dict:
         "friendliness_score": estimate_friendliness(text),
         "product_interest": infer_product_interest(text),
         "client_objections": extract_objections(text),
-        "client_knows_source": detect_keywords(text, SOURCE_KEYWORDS)
+        "client_knows_source": detect_keywords(text, SOURCE_KEYWORDS),
+        "llm_analysis": analyze_openrouter_llm(text)
     }
