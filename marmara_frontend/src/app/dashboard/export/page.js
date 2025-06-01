@@ -92,6 +92,7 @@ export default function ExportPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {transcriptions.map((t) => {
                     const report = reports[t.id];
+                    const isProcessing = !t.text;
 
                     return (
                         <div
@@ -103,7 +104,9 @@ export default function ExportPage() {
                                 Дата: {new Date(t.created_at).toLocaleString()}
                             </p>
 
-                            {report ? (
+                            {isProcessing ? (
+                                <p className="text-gray-500 italic">Запись ещё обрабатывается...</p>
+                            ) : report ? (
                                 <>
                                     <ul className="text-gray-700 mb-4 text-sm space-y-1">
                                         <li>👋 Приветствие: {report.greeting ? 'Да' : 'Нет'}</li>
