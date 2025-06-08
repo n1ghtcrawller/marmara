@@ -1,4 +1,4 @@
-from app.tasks.transcribe import celery
+from app.tasks.celery_app import celery_app
 
 if __name__ == "__main__":
-    celery.start()
+    celery_app.start()

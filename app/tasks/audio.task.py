@@ -3,9 +3,9 @@ from app.models.db_models import Transcription
 from app.services.speech_service import SpeechService
 from app.services.audio_service import AudioService
 from app.logger import celery_logger
-from app.tasks.celery_app import celery
+from app.tasks.celery_app import celery_app
 
-@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True)
+@celery_app.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_audio_task(self, transcription_id: int):
     db = SessionLocal()
     try:

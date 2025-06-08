@@ -7,6 +7,10 @@ from app.models.schemas import ReportCreate, ReportBase, ReportOut
 from app.database import SessionLocal
 from app.dependencies.auth import get_current_user
 from app.models.db_models import User
+from app.crud.report import get_report_by_transcription
+from app.tasks.analyze_llm import analyze_llm_task
+from app.crud.report import update_llm_analysis, mark_llm_analysis_as_generating
+
 
 def get_db():
     db = SessionLocal()
@@ -42,7 +46,7 @@ def generate_report(
 def get_report(
     transcription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 👈 Требуется авторизация
+    current_user: User = Depends(get_current_user)
 ):
     db_report = report_crud.get_report_by_transcription(db, transcription_id)
 
@@ -74,3 +78,29 @@ def list_reports(
     return db.query(db_models.Report).filter(
         db_models.Report.transcription_id.in_(user_transcription_ids)
     ).offset(skip).limit(limit).all()
+
+
+@router.post("/report/{report_id}/analyze-llm")
+def analyze_report_with_llm(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    report = get_report_by_transcription(db, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    transcription = db.query(db_models.Transcription).filter(
+        db_models.Transcription.id == report.transcription_id,
+        db_models.Transcription.user_id == current_user.id
+    ).first()
+
+    if not transcription:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    mark_llm_analysis_as_generating(db, report_id)
+
+    analyze_llm_task.delay(report_id)
+
+    report.llm_analysis = "generating"
+    return report

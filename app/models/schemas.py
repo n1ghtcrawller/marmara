@@ -26,8 +26,7 @@ class ReportBase(BaseModel):
     product_interest: Optional[str] = None
     client_objections: Optional[List[str]] = Field(default_factory=list)
     client_knows_source: Optional[bool] = False
-    llm_analysis: Optional[List[str]] = Field(default_factory=list)
-
+    llm_analysis: Optional[str] = None
 
 class ReportCreate(ReportBase):
     transcription_id: int
@@ -40,3 +39,6 @@ class ReportOut(ReportBase):
 
     class Config:
         from_attributes = True
+
+class LLMAnalysisUpdate(BaseModel):
+    llm_analysis: str

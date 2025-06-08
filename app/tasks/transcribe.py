@@ -1,46 +1,41 @@
-from app.database import SessionLocal
-from app.models.db_models import Transcription
-from app.services.speech_service import SpeechService
+import os
+from app.tasks.celery_app import celery_app
 from app.services.audio_service import AudioService
-from app.tasks.celery_app import celery
+from app.services.speech_service import SpeechService
 from app.logger import celery_logger
-import json
 
-@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True)
-def process_audio_task(self, transcription_id: int):
-    db = SessionLocal()
+audio_service = AudioService()
+speech_service = SpeechService()
+
+@celery_app.task(
+    name="app.tasks.transcribe.process_audio_task",
+    bind=True,
+    acks_late=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    queue="audio"
+)
+def process_audio_task(self, input_path: str, use_vad: bool = True) -> dict:
     try:
-        celery_logger.info(f"Начата обработка транскрипции с ID {transcription_id}")
-        transcription = db.query(Transcription).get(transcription_id)
-        if not transcription:
-            celery_logger.warning(f"Транскрипция с ID {transcription_id} не найдена")
-            return
+        celery_logger.info(f"[TASK] Начало обработки файла: {input_path}")
 
-        audio_path = transcription.file_path
-        celery_logger.info(f"Обработка файла: {audio_path}")
+        if use_vad:
+            celery_logger.info("VAD включён — применяем VAD к файлу.")
+            processed_path = audio_service.process_large_file_with_vad(input_path)
+            chunk_paths = [processed_path]
+        else:
+            celery_logger.info("VAD отключён — разбиваем файл без VAD.")
+            chunk_paths = audio_service.split_audio(input_path)
+            chunk_paths = [
+                audio_service.convert_to_wav(path, os.path.splitext(path)[0] + ".wav")
+                for path in chunk_paths
+            ]
 
-        processed_path = AudioService().process_large_file_with_vad(audio_path)
-        celery_logger.info(f"Файл после предобработки: {processed_path}")
+        result = speech_service.transcribe_chunks(chunk_paths)
 
-        result = SpeechService().transcribe(processed_path)
-        raw_text = result["text"]
-        metrics = result["metrics"]
+        celery_logger.info(f"[TASK] Завершена обработка файла: {input_path}")
+        return result
 
-        celery_logger.info(f"Сырой текст: {raw_text}")
-
-        transcription.text = raw_text
-        transcription.language = metrics.get("language")
-        transcription.duration_sec = metrics.get("duration_sec")
-        transcription.word_count = metrics.get("word_count")
-        transcription.segment_count = metrics.get("segment_count")
-        transcription.avg_segment_duration_sec = metrics.get("avg_segment_duration_sec")
-        transcription.avg_logprob = metrics.get("avg_logprob")
-        transcription.silence_ratio = metrics.get("silence_ratio")
-
-        db.commit()
-        celery_logger.info(f"Транскрипция ID {transcription_id} успешно сохранена")
     except Exception as e:
-        celery_logger.error(f"Ошибка при обработке транскрипции ID {transcription_id}: {e}")
-    finally:
-        db.close()
-
+        celery_logger.error(f"[TASK] Ошибка при обработке {input_path}: {e}")
+        raise
