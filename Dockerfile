@@ -1,27 +1,23 @@
 FROM python:3.10-slim
 
-# Установка зависимостей
-RUN apt-get update && apt-get install -y ffmpeg git && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Установим ffmpeg и git
+RUN apt-get update && apt-get install -y ffmpeg git \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Установка рабочей директории
 WORKDIR /app
 
-# Установка зависимостей Python
+# Копируем только requirements.txt сначала — это кэшируется отдельно
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Загрузка модели spaCy
-#RUN #python -m spacy download ru_core_news_sm
+# Устанавливаем зависимости
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Загрузка ресурсов NLTK
-#RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
-
-# Загрузка модели whisper large-v2
-#RUN python -c "import whisper; whisper.load_model('large-v2')" - для разворачивания без скачанного на хост машине модели
-COPY docker_cache/whisper/large-v2.pt /root/.cache/whisper/large-v2.pt
-
-# Копирование всего проекта
+# Копируем весь проект (включая /app, uploaded_files и т.п.)
 COPY . .
 
-# Команда запуска
+# Добавляем заранее загруженную модель Whisper
+COPY docker_cache/whisper/large-v2.pt /root/.cache/whisper/large-v2.pt
+
+# Команда по умолчанию
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

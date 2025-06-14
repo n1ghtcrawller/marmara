@@ -48,7 +48,7 @@ async def upload_audio(
 
     # Запускаем фоновую задачу
     celery_logger.info(f"Отправка задачи Celery для ID {transcription.id}")
-    process_audio_task.delay(transcription.id)
+    process_audio_task.delay(transcription.file_path)
     return {"message": "Файл принят", "transcription_id": transcription.id}
 
 @router.get("/results/")

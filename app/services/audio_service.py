@@ -86,7 +86,8 @@ class AudioService:
 
         subprocess.run([
             "ffmpeg", "-hide_banner", "-loglevel", "error",
-            "-f", "concat", "-safe", "0",
+            "-f", "concat",
+            "-safe", "0",
             "-i", list_file,
             "-c", "copy",
             output_path
@@ -110,3 +111,26 @@ class AudioService:
 
         final_output = os.path.splitext(input_path)[0] + f"_{uuid.uuid4().hex}_final.wav"
         return self.concatenate_wavs(vad_wavs, final_output)
+
+
+    def split_and_process_chunks(self, input_path: str, chunk_length: int = 60) -> List[str]:
+        """
+        Делит большой файл на чанки, конвертирует в .wav, применяет VAD.
+        Возвращает список путей к готовым чанкам.
+        """
+        celery_logger.info(f"Старт обработки: деление и VAD для {input_path}")
+        chunk_paths = self.split_audio(input_path, chunk_length)
+        processed_chunks = []
+
+        for chunk in chunk_paths:
+            try:
+                base = os.path.splitext(chunk)[0]
+                wav_path = self.convert_to_wav(chunk, base + ".wav")
+                vad_path = self.apply_vad(wav_path)
+                processed_chunks.append(vad_path)
+                celery_logger.info(f"Обработан чанк: {vad_path}")
+            except Exception as e:
+                celery_logger.warning(f"Ошибка обработки чанка {chunk}: {e}")
+
+        celery_logger.info(f"Готово {len(processed_chunks)} чанков")
+        return processed_chunks

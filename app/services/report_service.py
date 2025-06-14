@@ -1,6 +1,12 @@
 import re
 from typing import List, Dict
-from collections import Counter
+from dotenv import load_dotenv
+import os
+import httpx
+
+load_dotenv()
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 GREETING_KEYWORDS = ["здравствуйте", "добрый день", "привет"]
 DISCOUNT_KEYWORDS = ["скидк", "акц", "предлож"]
@@ -52,6 +58,48 @@ def infer_product_interest(text: str) -> str:
     matches = re.findall(r"(тариф\s+\w+|план\s+\w+|услуга\s+\w+)", text.lower())
     return matches[0] if matches else ""
 
+def analyze_openrouter_llm(transcription: str) -> str:
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}"
+    }
+
+    payload = {
+        "model": "mistralai/mistral-7b-instruct",
+        "messages": [
+            {
+                "role": "system",
+                "content": "Ты эксперт по анализу звонков. Отвечай по пунктам и кратко."
+            },
+            {
+                "role": "user",
+                "content": f"""Проанализируй транскрипт звонка:
+{transcription}
+    
+
+Сделай краткий анализ по следующим пунктам (до 3000 символов):
+1. Общая суть и цель звонка.
+2. Полезная информация, которую дал клиент или менеджер.
+3. Краткая оценка работы менеджера (вежливость, информативность, вовлечённость).
+4. Основные плюсы общения.
+5. Основные минусы (если есть).
+6. Рекомендации по улучшению (если необходимо).
+
+Пиши лаконично, не повторяй текст звонка, а только выжимку смысла."""
+            }
+        ],
+        "max_tokens": 1500,
+        "temperature": 0.7
+    }
+
+    try:
+        response = httpx.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except httpx.RequestError as e:
+        return f"Ошибка соединения с OpenRouter: {e}"
+    except Exception as e:
+        return f"Ошибка анализа ответа: {e}"
 
 def generate_report_data(text: str) -> Dict:
     return {
@@ -62,5 +110,5 @@ def generate_report_data(text: str) -> Dict:
         "friendliness_score": estimate_friendliness(text),
         "product_interest": infer_product_interest(text),
         "client_objections": extract_objections(text),
-        "client_knows_source": detect_keywords(text, SOURCE_KEYWORDS)
+        "client_knows_source": detect_keywords(text, SOURCE_KEYWORDS),
     }
